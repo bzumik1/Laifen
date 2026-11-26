@@ -28,7 +28,7 @@
     "laifen_ble"
   ],
   "requirements": [
-    "laifen-ble==0.3.0"
+    "laifen-ble==0.3.1"
   ],
-  "version": "0.3.0"
+  "version": "0.3.1"
 }
