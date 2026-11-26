@@ -85,7 +85,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
         self, service_info: BluetoothServiceInfoBleak, change: BluetoothChange
     ) -> None:
         """Connect when the toothbrush wakes up and advertises."""
-        if self.toothbrush.connected:
+        if self.hass.is_stopping or self.toothbrush.connected:
             return
         self.config_entry.async_create_background_task(
             self.hass, self.async_request_refresh(), "laifen connect"
