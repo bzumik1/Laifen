@@ -121,6 +121,8 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
     @override
     async def _async_update_data(self) -> None:
         """Read the state of a connected toothbrush, or connect if it is awake."""
+        if self.hass.is_stopping:
+            return
         if self.toothbrush.connected:
             try:
                 await self.toothbrush.update()
