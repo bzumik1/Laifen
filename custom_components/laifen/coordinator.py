@@ -96,6 +96,8 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
     @callback
     def _async_handle_toothbrush_update(self) -> None:
         """Handle a change of the toothbrush or of its connection."""
+        if self.hass.is_stopping:
+            return
         connected = self.toothbrush.connected
         if connected != self._connected:
             self._connected = connected
