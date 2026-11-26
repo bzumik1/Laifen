@@ -6,13 +6,9 @@ from typing import override
 from laifen_ble import LaifenConnectionError, LaifenToothbrush
 
 from homeassistant.components.bluetooth import (
-    BluetoothCallbackMatcher,
-    BluetoothCallbackReplay,
-    BluetoothChange,
-    BluetoothScanningMode,
     BluetoothServiceInfoBleak,
-    async_address_present,
-    async_register_callback,
+    async_ble_device_from_address,
+    async_register_advertisement_callback,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -30,7 +26,8 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
 
     The toothbrush only advertises while it is awake and pushes its state over
     the connection, so connecting is triggered by its advertisements instead of
-    by polling.
+    by polling. Its advertisements never change, so every advertisement is
+    watched, not only changed ones.
     """
 
     config_entry: LaifenConfigEntry
@@ -57,33 +54,30 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
             self.toothbrush.register_callback(self.async_update_listeners)
         )
         self.config_entry.async_on_unload(
-            async_register_callback(
-                self.hass,
-                self._async_handle_advertisement,
-                BluetoothCallbackMatcher(
-                    address=self.toothbrush.address, connectable=True
-                ),
-                BluetoothScanningMode.PASSIVE,
-                replay=BluetoothCallbackReplay.DISABLED,
+            async_register_advertisement_callback(
+                self.hass, self._async_handle_advertisement, self.toothbrush.address
             )
         )
 
     @callback
     def _async_handle_advertisement(
-        self, service_info: BluetoothServiceInfoBleak, change: BluetoothChange
+        self, service_info: BluetoothServiceInfoBleak
     ) -> None:
-        """Connect when the toothbrush wakes up and advertises."""
-        self.toothbrush.set_ble_device(service_info.device)
+        """Connect once the Bluetooth manager has stored the advertisement."""
         if not self.toothbrush.connected:
-            self._debounced_refresh.async_schedule_call()
+            self.hass.loop.call_soon(self._debounced_refresh.async_schedule_call)
 
     @override
     async def _async_update_data(self) -> None:
         """Connect to the toothbrush if it is awake."""
-        if self.toothbrush.connected or not async_address_present(
-            self.hass, self.toothbrush.address, connectable=True
-        ):
+        if self.toothbrush.connected:
             return
+        ble_device = async_ble_device_from_address(
+            self.hass, self.toothbrush.address, connectable=True
+        )
+        if ble_device is None:
+            return
+        self.toothbrush.set_ble_device(ble_device)
         try:
             await self.toothbrush.connect()
         except LaifenConnectionError as err:
