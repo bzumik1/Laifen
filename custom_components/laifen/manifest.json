@@ -23,12 +23,12 @@
   "documentation": "https://github.com/bzumik1/Laifen",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/bzumik1/Laifen/issues",
+  "issue_tracker": "https://github.com/bzumik1/laifen-ble/issues",
   "loggers": [
     "laifen_ble"
   ],
   "requirements": [
     "laifen-ble==0.3.10"
   ],
-  "version": "0.4.9"
+  "version": "0.4.10"
 }
