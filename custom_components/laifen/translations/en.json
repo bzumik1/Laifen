@@ -81,7 +81,7 @@
     },
     "exceptions": {
         "charging": {
-            "message": "The toothbrush cannot start while it is charging."
+            "message": "The toothbrush refused the command because it is charging."
         },
         "command_refused": {
             "message": "The toothbrush refused the command."
@@ -90,13 +90,13 @@
             "message": "Could not communicate with the toothbrush. Press its button to wake it up and try again."
         },
         "invalid_value": {
-            "message": "The toothbrush does not accept this value in its current state."
+            "message": "The toothbrush does not accept this value."
         },
         "low_battery": {
-            "message": "The battery of the toothbrush is too low to start."
+            "message": "The toothbrush refused the command because its battery is too low."
         },
         "malfunction": {
-            "message": "The toothbrush reported a malfunction and cannot start."
+            "message": "The toothbrush refused the command because it reported a malfunction."
         }
     }
 }
