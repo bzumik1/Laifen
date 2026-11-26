@@ -11,8 +11,10 @@ from homeassistant.components.bluetooth import (
     BluetoothCallbackMatcher,
     BluetoothCallbackReplay,
     BluetoothChange,
+    BluetoothReachabilityIntent,
     BluetoothScanningMode,
     BluetoothServiceInfoBleak,
+    async_address_reachability_diagnostics,
     async_clear_advertisement_history,
     async_last_service_info,
     async_register_callback,
@@ -146,7 +148,16 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
                 "%s sends a state that is not supported: %s", self.toothbrush.name, err
             )
         except LaifenConnectionError as err:
-            _LOGGER.debug("Could not connect to %s: %s", self.toothbrush.name, err)
+            _LOGGER.debug(
+                "Could not connect to %s: %s (%s)",
+                self.toothbrush.name,
+                err,
+                async_address_reachability_diagnostics(
+                    self.hass,
+                    self.toothbrush.address,
+                    BluetoothReachabilityIntent.CONNECTION,
+                ),
+            )
             async_clear_advertisement_history(self.hass, self.toothbrush.address)
 
     @override
