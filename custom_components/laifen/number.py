@@ -137,4 +137,4 @@ class LaifenNumber(LaifenConnectedEntity, NumberEntity):
     @laifen_command
     async def async_set_native_value(self, value: float) -> None:
         """Change the setting."""
-        await self.entity_description.set_fn(self.toothbrush, int(value))
+        await self.entity_description.set_fn(self.toothbrush, round(value))
