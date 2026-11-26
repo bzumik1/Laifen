@@ -1,11 +1,30 @@
-"""Base entity for the Laifen integration."""
+"""Base entities for the Laifen integration."""
 
+from collections.abc import Awaitable, Callable, Coroutine
+from functools import wraps
+from typing import Any, Concatenate, override
+
+from laifen_ble import (
+    LaifenCommandError,
+    LaifenConnectionError,
+    LaifenMotorError,
+    LaifenToothbrush,
+    MotorStatus,
+)
+
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import LaifenCoordinator
+
+MOTOR_ERRORS = {
+    MotorStatus.CHARGING: "charging",
+    MotorStatus.LOW_BATTERY: "low_battery",
+    MotorStatus.MALFUNCTION: "malfunction",
+}
 
 
 class LaifenEntity(CoordinatorEntity[LaifenCoordinator]):
@@ -31,3 +50,51 @@ class LaifenEntity(CoordinatorEntity[LaifenCoordinator]):
             model_id="LFTB01-P",
             name=coordinator.config_entry.title,
         )
+
+    @property
+    def toothbrush(self) -> LaifenToothbrush:
+        """Return the toothbrush."""
+        return self.coordinator.toothbrush
+
+
+class LaifenConnectedEntity(LaifenEntity):
+    """Base class for entities that need a connected toothbrush."""
+
+    @property
+    @override
+    def available(self) -> bool:
+        """Return whether the toothbrush is connected."""
+        return (
+            super().available
+            and self.toothbrush.connected
+            and self.toothbrush.state is not None
+        )
+
+
+def _error_translation_key(err: LaifenCommandError) -> str:
+    """Return the translation key for a refused command."""
+    if isinstance(err, LaifenMotorError) and err.reason is not None:
+        return MOTOR_ERRORS[err.reason]
+    return "command_refused"
+
+
+def laifen_command[_EntityT: LaifenEntity, **_P](
+    func: Callable[Concatenate[_EntityT, _P], Awaitable[None]],
+) -> Callable[Concatenate[_EntityT, _P], Coroutine[Any, Any, None]]:
+    """Translate the errors of a toothbrush command."""
+
+    @wraps(func)
+    async def handler(self: _EntityT, *args: _P.args, **kwargs: _P.kwargs) -> None:
+        try:
+            await func(self, *args, **kwargs)
+        except LaifenConnectionError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="not_connected"
+            ) from err
+        except LaifenCommandError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key=_error_translation_key(err),
+            ) from err
+
+    return handler

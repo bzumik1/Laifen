@@ -1,0 +1,47 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "airplane_mode": {
+        "default": "mdi:airplane-off",
+        "state": {
+          "on": "mdi:airplane"
+        }
+      }
+    },
+    "number": {
+      "range": {
+        "default": "mdi:arrow-expand-horizontal"
+      },
+      "speed": {
+        "default": "mdi:speedometer"
+      },
+      "strength": {
+        "default": "mdi:vibrate"
+      }
+    },
+    "select": {
+      "mode": {
+        "default": "mdi:tune-variant"
+      }
+    },
+    "sensor": {
+      "last_brushing": {
+        "default": "mdi:toothbrush"
+      },
+      "last_brushing_duration": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "switch": {
+      "brushing": {
+        "default": "mdi:toothbrush-electric"
+      },
+      "high_frequency": {
+        "default": "mdi:sine-wave"
+      },
+      "reminder_30s": {
+        "default": "mdi:timer-sand"
+      }
+    }
+  }
+}

@@ -8,7 +8,13 @@ from homeassistant.core import HomeAssistant
 
 from .coordinator import LaifenConfigEntry, LaifenCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: LaifenConfigEntry) -> None:

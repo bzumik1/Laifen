@@ -2,9 +2,10 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import override
 
-from laifen_ble import LaifenState, Mode
+from laifen_ble import LaifenToothbrush
 
 from homeassistant.components.sensor import (
     RestoreSensor,
@@ -12,30 +13,21 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.typing import StateType
 
 from .coordinator import LaifenConfigEntry
 from .entity import LaifenEntity
 
 PARALLEL_UPDATES = 0
 
-MODES = {
-    Mode.MODE_1: "mode_1",
-    Mode.MODE_2: "mode_2",
-    Mode.MODE_3: "mode_3",
-    Mode.HIGH_FREQUENCY: "high_frequency",
-}
-
 
 @dataclass(frozen=True, kw_only=True)
 class LaifenSensorEntityDescription(SensorEntityDescription):
     """Describes a Laifen sensor."""
 
-    value_fn: Callable[[LaifenState], StateType]
-    available_while_asleep: bool
+    value_fn: Callable[[LaifenToothbrush], int | datetime | None]
 
 
 SENSORS: tuple[LaifenSensorEntityDescription, ...] = (
@@ -44,24 +36,27 @@ SENSORS: tuple[LaifenSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda state: state.battery_level,
-        available_while_asleep=True,
+        value_fn=lambda toothbrush: (
+            toothbrush.state.battery_level if toothbrush.state else None
+        ),
     ),
     LaifenSensorEntityDescription(
-        key="status",
-        translation_key="status",
-        device_class=SensorDeviceClass.ENUM,
-        options=["idle", "brushing"],
-        value_fn=lambda state: "brushing" if state.running else "idle",
-        available_while_asleep=False,
+        key="last_brushing",
+        translation_key="last_brushing",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda toothbrush: (
+            toothbrush.last_session.started_at if toothbrush.last_session else None
+        ),
     ),
     LaifenSensorEntityDescription(
-        key="mode",
-        translation_key="mode",
-        device_class=SensorDeviceClass.ENUM,
-        options=list(MODES.values()),
-        value_fn=lambda state: MODES[state.mode],
-        available_while_asleep=True,
+        key="last_brushing_duration",
+        translation_key="last_brushing_duration",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        suggested_display_precision=0,
+        value_fn=lambda toothbrush: (
+            toothbrush.last_session.duration if toothbrush.last_session else None
+        ),
     ),
 )
 
@@ -87,9 +82,7 @@ class LaifenSensor(LaifenEntity, RestoreSensor):
     async def async_added_to_hass(self) -> None:
         """Restore the last value."""
         await super().async_added_to_hass()
-        if self.entity_description.available_while_asleep and (
-            last_sensor_data := await self.async_get_last_sensor_data()
-        ):
+        if (last_sensor_data := await self.async_get_last_sensor_data()) is not None:
             self._attr_native_value = last_sensor_data.native_value
         self._update_native_value()
 
@@ -101,18 +94,14 @@ class LaifenSensor(LaifenEntity, RestoreSensor):
         super()._handle_coordinator_update()
 
     def _update_native_value(self) -> None:
-        """Update the value from the last known state of the toothbrush."""
-        if (state := self.coordinator.toothbrush.state) is not None:
-            self._attr_native_value = self.entity_description.value_fn(state)
+        """Update the value from the toothbrush."""
+        if (value := self.entity_description.value_fn(self.toothbrush)) is not None:
+            self._attr_native_value = value
 
     @property
     @override
     def available(self) -> bool:
         """Return whether the sensor is available."""
         return super().available and (
-            self.coordinator.toothbrush.connected
-            or (
-                self.entity_description.available_while_asleep
-                and self.native_value is not None
-            )
+            self.toothbrush.connected or self.native_value is not None
         )

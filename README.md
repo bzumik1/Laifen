@@ -9,9 +9,14 @@ It supports the **Laifen Wave** (`LFTB01-P`) electric toothbrush over Bluetooth,
 
 ## Entities
 
-- **Battery**: battery level, kept while the toothbrush is asleep
-- **Mode**: Mode 1, Mode 2, Mode 3 or High frequency, kept while the toothbrush is asleep
-- **Status**: idle or brushing, unavailable while the toothbrush is asleep
+- **Battery**, **Last brushing** and **Last brushing duration** sensors, kept while the
+  toothbrush is asleep
+- **Mode** select: Mode 1, Mode 2, Mode 3, or High frequency when it is turned on
+- **Strength**, **Range** and **Speed** of the active mode, and **Brushing time**
+- **Brushing**, **High frequency** and **30-second reminder** switches
+- **Airplane mode** binary sensor, disabled by default
+
+The controls are only available while the toothbrush is awake.
 
 ## Installation
 
