@@ -1,8 +1,8 @@
 """Number platform for the Laifen integration."""
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, override
+from dataclasses import dataclass
+from typing import override
 
 from laifen_ble import (
     BRUSHING_TIME_STEP,
@@ -35,22 +35,7 @@ class LaifenNumberEntityDescription(NumberEntityDescription):
 
     value_fn: Callable[[LaifenState], int]
     limits_fn: Callable[[LaifenState], tuple[int, int]] | None = None
-    set_fn: Callable[[LaifenToothbrush, LaifenState, int], Awaitable[None]]
-
-
-def _set_active_mode_setting(
-    setting: str,
-) -> Callable[[LaifenToothbrush, LaifenState, int], Awaitable[None]]:
-    """Return a function that changes one setting of the active mode."""
-
-    def set_setting(
-        toothbrush: LaifenToothbrush, state: LaifenState, value: int
-    ) -> Awaitable[None]:
-        return toothbrush.set_mode_settings(
-            state.mode, replace(state.active_mode_settings, **{setting: value})
-        )
-
-    return set_setting
+    set_fn: Callable[[LaifenToothbrush, int], Awaitable[None]]
 
 
 NUMBERS: tuple[LaifenNumberEntityDescription, ...] = (
@@ -63,7 +48,7 @@ NUMBERS: tuple[LaifenNumberEntityDescription, ...] = (
         native_step=1,
         value_fn=lambda state: state.active_mode_settings.strength,
         limits_fn=lambda state: state.mode.strength_limits,
-        set_fn=_set_active_mode_setting("strength"),
+        set_fn=lambda toothbrush, value: toothbrush.set_strength(value),
     ),
     LaifenNumberEntityDescription(
         key="range",
@@ -73,7 +58,7 @@ NUMBERS: tuple[LaifenNumberEntityDescription, ...] = (
         native_max_value=MAX_SETTING,
         native_step=1,
         value_fn=lambda state: state.active_mode_settings.range,
-        set_fn=_set_active_mode_setting("range"),
+        set_fn=lambda toothbrush, value: toothbrush.set_range(value),
     ),
     LaifenNumberEntityDescription(
         key="speed",
@@ -83,7 +68,7 @@ NUMBERS: tuple[LaifenNumberEntityDescription, ...] = (
         native_max_value=MAX_SETTING,
         native_step=1,
         value_fn=lambda state: state.active_mode_settings.speed,
-        set_fn=_set_active_mode_setting("speed"),
+        set_fn=lambda toothbrush, value: toothbrush.set_speed(value),
     ),
     LaifenNumberEntityDescription(
         key="brushing_time",
@@ -95,7 +80,7 @@ NUMBERS: tuple[LaifenNumberEntityDescription, ...] = (
         native_max_value=MAX_BRUSHING_TIME,
         native_step=BRUSHING_TIME_STEP,
         value_fn=lambda state: state.brushing_time,
-        set_fn=lambda toothbrush, state, value: toothbrush.set_brushing_time(value),
+        set_fn=lambda toothbrush, value: toothbrush.set_brushing_time(value),
     ),
 )
 
@@ -118,18 +103,11 @@ class LaifenNumber(LaifenConnectedEntity, NumberEntity):
     entity_description: LaifenNumberEntityDescription
 
     @property
-    def _state(self) -> LaifenState:
-        """Return the state of the connected toothbrush."""
-        state = self.toothbrush.state
-        if TYPE_CHECKING:
-            assert state is not None
-        return state
-
-    @property
     @override
-    def native_value(self) -> int:
+    def native_value(self) -> int | None:
         """Return the value of the setting."""
-        return self.entity_description.value_fn(self._state)
+        state = self.toothbrush.state
+        return self.entity_description.value_fn(state) if state else None
 
     @property
     @override
@@ -159,4 +137,4 @@ class LaifenNumber(LaifenConnectedEntity, NumberEntity):
     @laifen_command
     async def async_set_native_value(self, value: float) -> None:
         """Change the setting."""
-        await self.entity_description.set_fn(self.toothbrush, self._state, int(value))
+        await self.entity_description.set_fn(self.toothbrush, int(value))

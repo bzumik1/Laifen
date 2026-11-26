@@ -5,11 +5,12 @@ from laifen_ble import LaifenToothbrush
 from homeassistant.components.bluetooth import async_ble_device_from_address
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
+from .const import DOMAIN
 from .coordinator import LaifenConfigEntry, LaifenCoordinator
 
 PLATFORMS: list[Platform] = [
-    Platform.BINARY_SENSOR,
     Platform.EVENT,
     Platform.NUMBER,
     Platform.SELECT,
@@ -21,9 +22,18 @@ PLATFORMS: list[Platform] = [
 async def async_setup_entry(hass: HomeAssistant, entry: LaifenConfigEntry) -> None:
     """Set up Laifen from a config entry."""
     address: str = entry.data[CONF_ADDRESS]
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, address)},
+        connections={(dr.CONNECTION_BLUETOOTH, address)},
+        manufacturer="Laifen",
+        model="Wave",
+        model_id="LFTB01-P",
+        name=entry.title,
+    )
     ble_device = async_ble_device_from_address(hass, address, connectable=True)
     coordinator = LaifenCoordinator(
-        hass, entry, LaifenToothbrush(ble_device or address)
+        hass, entry, LaifenToothbrush(ble_device or address), device.id
     )
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator

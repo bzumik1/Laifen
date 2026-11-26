@@ -8,14 +8,18 @@ from laifen_ble import LaifenConnectionError, LaifenToothbrush
 
 from homeassistant.components.bluetooth import (
     MONOTONIC_TIME,
+    BluetoothCallbackMatcher,
+    BluetoothCallbackReplay,
+    BluetoothChange,
+    BluetoothScanningMode,
     BluetoothServiceInfoBleak,
+    async_clear_advertisement_history,
     async_last_service_info,
-    async_register_advertisement_callback,
+    async_register_callback,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,11 +33,10 @@ type LaifenConfigEntry = ConfigEntry[LaifenCoordinator]
 class LaifenCoordinator(DataUpdateCoordinator[None]):
     """Connect to a Laifen toothbrush whenever it is awake.
 
-    The toothbrush only advertises while it is awake and pushes its state over
-    the connection, so connecting is triggered by its advertisements. Its
-    advertisements never change, so every advertisement is watched, not only
-    changed ones. The battery level is not pushed, so the state is read every
-    minute while the toothbrush stays connected, for example on its charger.
+    The toothbrush advertises the same data whenever it wakes up, so the
+    advertisement history is cleared after every connection to hear the next
+    wake-up. Its state is pushed over the connection, except for the battery
+    level, which is read every minute while it stays connected on its charger.
     """
 
     config_entry: LaifenConfigEntry
@@ -43,6 +46,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
         hass: HomeAssistant,
         config_entry: LaifenConfigEntry,
         toothbrush: LaifenToothbrush,
+        device_id: str,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -50,29 +54,67 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
             _LOGGER,
             config_entry=config_entry,
             name=toothbrush.name,
-            update_interval=UPDATE_INTERVAL,
         )
         self.toothbrush = toothbrush
+        self.device_id = device_id
+        self._connected = False
+        self._firmware_version: str | None = None
 
     @override
     async def _async_setup(self) -> None:
         """Listen to the toothbrush and to its advertisements."""
         self.config_entry.async_on_unload(
-            self.toothbrush.register_callback(self.async_update_listeners)
+            self.toothbrush.register_callback(self._async_handle_toothbrush_update)
         )
         self.config_entry.async_on_unload(
-            async_register_advertisement_callback(
-                self.hass, self._async_handle_advertisement, self.toothbrush.address
+            async_register_callback(
+                self.hass,
+                self._async_handle_advertisement,
+                BluetoothCallbackMatcher(
+                    address=self.toothbrush.address, connectable=True
+                ),
+                BluetoothScanningMode.PASSIVE,
+                replay=BluetoothCallbackReplay.DISABLED,
             )
         )
 
     @callback
     def _async_handle_advertisement(
-        self, service_info: BluetoothServiceInfoBleak
+        self, service_info: BluetoothServiceInfoBleak, change: BluetoothChange
     ) -> None:
-        """Connect once the Bluetooth manager has stored the advertisement."""
-        if not self.toothbrush.connected:
-            self.hass.loop.call_soon(self._debounced_refresh.async_schedule_call)
+        """Connect when the toothbrush wakes up and advertises."""
+        if self.toothbrush.connected:
+            return
+        self.config_entry.async_create_background_task(
+            self.hass, self.async_request_refresh(), "laifen connect"
+        )
+
+    @callback
+    def _async_handle_toothbrush_update(self) -> None:
+        """Handle a change of the toothbrush or of its connection."""
+        connected = self.toothbrush.connected
+        if connected != self._connected:
+            self._connected = connected
+            if connected:
+                _LOGGER.info("Connected to %s", self.toothbrush.name)
+                self.update_interval = UPDATE_INTERVAL
+            else:
+                _LOGGER.info("%s is asleep or out of range", self.toothbrush.name)
+                self.update_interval = None
+                async_clear_advertisement_history(self.hass, self.toothbrush.address)
+        self._async_update_firmware_version()
+        self.async_update_listeners()
+
+    @callback
+    def _async_update_firmware_version(self) -> None:
+        """Store the firmware version on the device."""
+        firmware_version = self.toothbrush.firmware_version
+        if firmware_version is None or firmware_version == self._firmware_version:
+            return
+        self._firmware_version = firmware_version
+        dr.async_get(self.hass).async_update_device(
+            self.device_id, sw_version=firmware_version
+        )
 
     @override
     async def _async_update_data(self) -> None:
@@ -96,13 +138,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
             await self.toothbrush.connect()
         except LaifenConnectionError as err:
             _LOGGER.debug("Could not connect to %s: %s", self.toothbrush.name, err)
-            return
-        if self.toothbrush.firmware_version is not None:
-            dr.async_get(self.hass).async_get_or_create(
-                config_entry_id=self.config_entry.entry_id,
-                connections={(CONNECTION_BLUETOOTH, self.toothbrush.address)},
-                sw_version=self.toothbrush.firmware_version,
-            )
+            async_clear_advertisement_history(self.hass, self.toothbrush.address)
 
     @override
     async def async_shutdown(self) -> None:

@@ -2,7 +2,6 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from typing import override
 
 from laifen_ble import LaifenToothbrush
@@ -27,7 +26,7 @@ PARALLEL_UPDATES = 0
 class LaifenSensorEntityDescription(SensorEntityDescription):
     """Describes a Laifen sensor."""
 
-    value_fn: Callable[[LaifenToothbrush], int | datetime | None]
+    value_fn: Callable[[LaifenToothbrush], int | None]
 
 
 SENSORS: tuple[LaifenSensorEntityDescription, ...] = (
@@ -38,14 +37,6 @@ SENSORS: tuple[LaifenSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda toothbrush: (
             toothbrush.state.battery_level if toothbrush.state else None
-        ),
-    ),
-    LaifenSensorEntityDescription(
-        key="last_brushing",
-        translation_key="last_brushing",
-        device_class=SensorDeviceClass.TIMESTAMP,
-        value_fn=lambda toothbrush: (
-            toothbrush.last_session.started_at if toothbrush.last_session else None
         ),
     ),
     LaifenSensorEntityDescription(

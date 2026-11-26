@@ -1,13 +1,5 @@
 {
   "entity": {
-    "binary_sensor": {
-      "airplane_mode": {
-        "default": "mdi:airplane-off",
-        "state": {
-          "on": "mdi:airplane"
-        }
-      }
-    },
     "event": {
       "brushing_session": {
         "default": "mdi:toothbrush-electric"
@@ -30,9 +22,6 @@
       }
     },
     "sensor": {
-      "last_brushing": {
-        "default": "mdi:toothbrush"
-      },
       "last_brushing_duration": {
         "default": "mdi:timer-outline"
       }

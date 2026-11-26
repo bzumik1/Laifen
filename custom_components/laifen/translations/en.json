@@ -24,11 +24,6 @@
         }
     },
     "entity": {
-        "binary_sensor": {
-            "airplane_mode": {
-                "name": "Airplane mode"
-            }
-        },
         "event": {
             "brushing_session": {
                 "name": "Brushing session",
@@ -67,9 +62,6 @@
             }
         },
         "sensor": {
-            "last_brushing": {
-                "name": "Last brushing"
-            },
             "last_brushing_duration": {
                 "name": "Last brushing duration"
             }
@@ -93,14 +85,17 @@
         "command_refused": {
             "message": "The toothbrush refused the command."
         },
+        "communication_error": {
+            "message": "Could not communicate with the toothbrush. Press its button to wake it up and try again."
+        },
+        "invalid_value": {
+            "message": "The toothbrush does not accept this value in its current state."
+        },
         "low_battery": {
             "message": "The battery of the toothbrush is too low to start."
         },
         "malfunction": {
             "message": "The toothbrush reported a malfunction and cannot start."
-        },
-        "not_connected": {
-            "message": "The toothbrush is not connected. Press its button to wake it up and try again."
         }
     }
 }

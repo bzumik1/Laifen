@@ -46,7 +46,8 @@ class LaifenBrushingEvent(LaifenEntity, EventEntity):
     def _handle_coordinator_update(self) -> None:
         """Fire the event when a new session finished."""
         session = self.toothbrush.last_session
-        if session is not None and session is not self._last_session:
-            self._last_session = session
-            self._trigger_event(BRUSHING_FINISHED, {"duration": session.duration})
-            super()._handle_coordinator_update()
+        if session is None or session is self._last_session:
+            return
+        self._last_session = session
+        self._trigger_event(BRUSHING_FINISHED, {"duration": session.duration})
+        self.async_write_ha_state()

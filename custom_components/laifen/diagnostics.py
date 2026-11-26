@@ -29,12 +29,17 @@ async def async_get_config_entry_diagnostics(
         ),
         "state": (
             {
-                **asdict(state),
                 "mode": state.mode.name,
                 "mode_settings": {
                     mode.name: asdict(settings)
                     for mode, settings in state.mode_settings.items()
                 },
+                "airplane_mode": state.airplane_mode,
+                "battery_level": state.battery_level,
+                "reminder_30s": state.reminder_30s,
+                "brushing_time": state.brushing_time,
+                "high_frequency": state.high_frequency,
+                "running": state.running,
             }
             if state
             else None

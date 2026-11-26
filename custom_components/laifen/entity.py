@@ -9,11 +9,12 @@ from laifen_ble import (
     LaifenConnectionError,
     LaifenMotorError,
     LaifenToothbrush,
+    LaifenValueError,
     MotorStatus,
 )
 
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -42,14 +43,7 @@ class LaifenEntity(CoordinatorEntity[LaifenCoordinator]):
         self.entity_description = entity_description
         address = coordinator.toothbrush.address
         self._attr_unique_id = f"{address}_{entity_description.key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, address)},
-            connections={(CONNECTION_BLUETOOTH, address)},
-            manufacturer="Laifen",
-            model="Wave",
-            model_id="LFTB01-P",
-            name=coordinator.config_entry.title,
-        )
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, address)})
 
     @property
     def toothbrush(self) -> LaifenToothbrush:
@@ -87,9 +81,13 @@ def laifen_command[_EntityT: LaifenEntity, **_P](
     async def handler(self: _EntityT, *args: _P.args, **kwargs: _P.kwargs) -> None:
         try:
             await func(self, *args, **kwargs)
+        except LaifenValueError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="invalid_value"
+            ) from err
         except LaifenConnectionError as err:
             raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="not_connected"
+                translation_domain=DOMAIN, translation_key="communication_error"
             ) from err
         except LaifenCommandError as err:
             raise HomeAssistantError(

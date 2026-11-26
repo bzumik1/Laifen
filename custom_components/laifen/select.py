@@ -40,12 +40,9 @@ class LaifenModeSelect(LaifenConnectedEntity, SelectEntity):
     @override
     def options(self) -> list[str]:
         """Return the modes that can be selected."""
-        state = self.toothbrush.state
-        return [
-            option
-            for mode, option in MODES.items()
-            if mode is not Mode.HIGH_FREQUENCY or (state and state.high_frequency)
-        ]
+        if (state := self.toothbrush.state) is None:
+            return list(MODES.values())
+        return [MODES[mode] for mode in state.available_modes]
 
     @property
     @override
