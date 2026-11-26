@@ -29,6 +29,18 @@
                 "name": "Airplane mode"
             }
         },
+        "event": {
+            "brushing_session": {
+                "name": "Brushing session",
+                "state_attributes": {
+                    "event_type": {
+                        "state": {
+                            "brushing_finished": "Brushing finished"
+                        }
+                    }
+                }
+            }
+        },
         "number": {
             "brushing_time": {
                 "name": "Brushing time"

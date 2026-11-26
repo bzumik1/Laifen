@@ -8,6 +8,11 @@
         }
       }
     },
+    "event": {
+      "brushing_session": {
+        "default": "mdi:toothbrush-electric"
+      }
+    },
     "number": {
       "range": {
         "default": "mdi:arrow-expand-horizontal"

@@ -1,13 +1,15 @@
 """Coordinator for the Laifen integration."""
 
+from datetime import timedelta
 import logging
 from typing import override
 
 from laifen_ble import LaifenConnectionError, LaifenToothbrush
 
 from homeassistant.components.bluetooth import (
+    MONOTONIC_TIME,
     BluetoothServiceInfoBleak,
-    async_ble_device_from_address,
+    async_last_service_info,
     async_register_advertisement_callback,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -18,6 +20,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+UPDATE_INTERVAL = timedelta(minutes=1)
+ADVERTISEMENT_MAX_AGE = 30
+
 type LaifenConfigEntry = ConfigEntry[LaifenCoordinator]
 
 
@@ -25,9 +30,10 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
     """Connect to a Laifen toothbrush whenever it is awake.
 
     The toothbrush only advertises while it is awake and pushes its state over
-    the connection, so connecting is triggered by its advertisements instead of
-    by polling. Its advertisements never change, so every advertisement is
-    watched, not only changed ones.
+    the connection, so connecting is triggered by its advertisements. Its
+    advertisements never change, so every advertisement is watched, not only
+    changed ones. The battery level is not pushed, so the state is read every
+    minute while the toothbrush stays connected, for example on its charger.
     """
 
     config_entry: LaifenConfigEntry
@@ -44,6 +50,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
             _LOGGER,
             config_entry=config_entry,
             name=toothbrush.name,
+            update_interval=UPDATE_INTERVAL,
         )
         self.toothbrush = toothbrush
 
@@ -69,15 +76,22 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
 
     @override
     async def _async_update_data(self) -> None:
-        """Connect to the toothbrush if it is awake."""
+        """Read the state of a connected toothbrush, or connect if it is awake."""
         if self.toothbrush.connected:
+            try:
+                await self.toothbrush.update()
+            except LaifenConnectionError as err:
+                _LOGGER.debug("Could not update %s: %s", self.toothbrush.name, err)
             return
-        ble_device = async_ble_device_from_address(
+        service_info = async_last_service_info(
             self.hass, self.toothbrush.address, connectable=True
         )
-        if ble_device is None:
+        if (
+            service_info is None
+            or MONOTONIC_TIME() - service_info.time > ADVERTISEMENT_MAX_AGE
+        ):
             return
-        self.toothbrush.set_ble_device(ble_device)
+        self.toothbrush.set_ble_device(service_info.device)
         try:
             await self.toothbrush.connect()
         except LaifenConnectionError as err:

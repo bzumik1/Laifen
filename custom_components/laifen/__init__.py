@@ -10,6 +10,7 @@ from .coordinator import LaifenConfigEntry, LaifenCoordinator
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
+    Platform.EVENT,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
