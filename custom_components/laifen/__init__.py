@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LaifenConfigEntry) -> No
         await toothbrush.disconnect()
 
     entry.async_on_unload(
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_disconnect)
+        hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, _async_disconnect)
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

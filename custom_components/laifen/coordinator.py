@@ -126,6 +126,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
                 await self.toothbrush.update()
             except LaifenConnectionError as err:
                 _LOGGER.debug("Could not update %s: %s", self.toothbrush.name, err)
+                await self.toothbrush.disconnect()
             return
         service_info = async_last_service_info(
             self.hass, self.toothbrush.address, connectable=True
