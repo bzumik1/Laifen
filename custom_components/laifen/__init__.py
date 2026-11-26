@@ -2,9 +2,8 @@
 
 from laifen_ble import LaifenToothbrush
 
-from homeassistant.components.bluetooth import async_ble_device_from_address
-from homeassistant.const import CONF_ADDRESS, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_ADDRESS, EVENT_HOMEASSISTANT_STOP, Platform
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
 from .const import DOMAIN
@@ -31,12 +30,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: LaifenConfigEntry) -> No
         model_id="LFTB01-P",
         name=entry.title,
     )
-    ble_device = async_ble_device_from_address(hass, address, connectable=True)
-    coordinator = LaifenCoordinator(
-        hass, entry, LaifenToothbrush(ble_device or address), device.id
-    )
+    toothbrush = LaifenToothbrush(address)
+    coordinator = LaifenCoordinator(hass, entry, toothbrush, device.id)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+
+    async def _async_disconnect(event: Event) -> None:
+        """Disconnect from the toothbrush when Home Assistant stops."""
+        await toothbrush.disconnect()
+
+    entry.async_on_unload(
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_disconnect)
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 

@@ -4,7 +4,7 @@ from datetime import timedelta
 import logging
 from typing import override
 
-from laifen_ble import LaifenConnectionError, LaifenToothbrush
+from laifen_ble import LaifenConnectionError, LaifenToothbrush, UnsupportedStateError
 
 from homeassistant.components.bluetooth import (
     MONOTONIC_TIME,
@@ -34,9 +34,10 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
     """Connect to a Laifen toothbrush whenever it is awake.
 
     The toothbrush advertises the same data whenever it wakes up, so the
-    advertisement history is cleared after every connection to hear the next
-    wake-up. Its state is pushed over the connection, except for the battery
-    level, which is read every minute while it stays connected on its charger.
+    advertisement history is cleared at setup and after every connection to
+    hear the next wake-up. Its state is pushed over the connection, except for
+    the battery level, which is read every minute while it stays connected on
+    its charger.
     """
 
     config_entry: LaifenConfigEntry
@@ -53,7 +54,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
             hass,
             _LOGGER,
             config_entry=config_entry,
-            name=toothbrush.name,
+            name=config_entry.title,
         )
         self.toothbrush = toothbrush
         self.device_id = device_id
@@ -77,6 +78,7 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
                 replay=BluetoothCallbackReplay.DISABLED,
             )
         )
+        async_clear_advertisement_history(self.hass, self.toothbrush.address)
 
     @callback
     def _async_handle_advertisement(
@@ -128,14 +130,18 @@ class LaifenCoordinator(DataUpdateCoordinator[None]):
         service_info = async_last_service_info(
             self.hass, self.toothbrush.address, connectable=True
         )
-        if (
-            service_info is None
-            or MONOTONIC_TIME() - service_info.time > ADVERTISEMENT_MAX_AGE
-        ):
+        if service_info is None:
+            return
+        if MONOTONIC_TIME() - service_info.time > ADVERTISEMENT_MAX_AGE:
+            async_clear_advertisement_history(self.hass, self.toothbrush.address)
             return
         self.toothbrush.set_ble_device(service_info.device)
         try:
             await self.toothbrush.connect()
+        except UnsupportedStateError as err:
+            _LOGGER.warning(
+                "%s sends a state that is not supported: %s", self.toothbrush.name, err
+            )
         except LaifenConnectionError as err:
             _LOGGER.debug("Could not connect to %s: %s", self.toothbrush.name, err)
             async_clear_advertisement_history(self.hass, self.toothbrush.address)

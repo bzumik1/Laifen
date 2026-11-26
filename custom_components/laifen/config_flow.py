@@ -2,7 +2,12 @@
 
 from typing import TYPE_CHECKING, Any, override
 
-from laifen_ble import LaifenConnectionError, LaifenToothbrush, is_supported
+from laifen_ble import (
+    LaifenConnectionError,
+    LaifenToothbrush,
+    UnsupportedStateError,
+    is_supported,
+)
 import probatio
 
 from homeassistant.components.bluetooth import (
@@ -12,6 +17,7 @@ from homeassistant.components.bluetooth import (
 )
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_ADDRESS
+from homeassistant.data_entry_flow import AbortFlow
 
 from .const import DOMAIN
 
@@ -32,6 +38,8 @@ class LaifenConfigFlow(ConfigFlow, domain=DOMAIN):
         toothbrush = LaifenToothbrush(ble_device)
         try:
             await toothbrush.connect()
+        except UnsupportedStateError as err:
+            raise AbortFlow("unsupported_firmware") from err
         except LaifenConnectionError:
             return False
         await toothbrush.disconnect()
