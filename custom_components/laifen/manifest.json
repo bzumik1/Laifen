@@ -11,7 +11,8 @@
     "health_wellbeing"
   ],
   "codeowners": [
-    "@bzumik1"
+    "@bzumik1",
+    "@UrbanTechIO"
   ],
   "config_flow": true,
   "connectivity": [
